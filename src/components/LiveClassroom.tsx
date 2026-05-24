@@ -19,8 +19,9 @@ export default function LiveClassroom() {
     { id: 2, user: 'Teacher', message: 'Sure, let me repeat the formula.', time: '10:16', isTeacher: true },
   ]);
 
-  const handleJoin = () => {
-    if (joinClassroom(joinCode)) {
+  const handleJoin = async () => {
+    const success = await joinClassroom(joinCode);
+    if (success) {
       const classroom = classrooms.find(c => c.code.toLowerCase() === joinCode.toLowerCase());
       setCurrentClass(classroom);
       setActiveView('live');

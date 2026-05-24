@@ -7,7 +7,6 @@ import {
   signOutUser,
   getUserProfile,
   getProfileByLoginId,
-  getProfileByEmail,
   getAllStudents,
   getAllTeachers,
   getQuizResults,
@@ -24,7 +23,6 @@ import {
   getFees,
   updateFeeStatus,
   saveDoubt,
-  getDoubtHistory,
 } from '../services/supabase';
 
 export type UserRole = 'none' | 'student' | 'teacher' | 'admin' | 'parent';
