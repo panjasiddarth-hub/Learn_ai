@@ -1,9 +1,10 @@
 /**
- * Google Gemini AI Integration - OPTIMIZED VERSION
+ * Google Gemini AI Integration - MULTI-SYLLABUS & HIGH-FIDELITY VERSION
  * Powered by Gemini 2.5 Flash
+ * Dynamic support for CBSE, State Board, IIT-JEE, and NEET
  */
 
-// Get API key from .env file
+// Get API key from env
 const GEMINI_API_KEY: string = import.meta.env.VITE_GEMINI_API_KEY || '';
 
 // API Endpoint - Latest Gemini 2.5 Flash model
@@ -15,8 +16,7 @@ export function isAPIConfigured(): boolean {
 }
 
 /**
- * Main function to call Gemini AI
- * Optimized with retry logic and better error handling
+ * Main function to call Gemini AI with retry logic
  */
 export async function askGemini(prompt: string, maxRetries: number = 2): Promise<string> {
   if (!isAPIConfigured()) {
@@ -25,7 +25,6 @@ export async function askGemini(prompt: string, maxRetries: number = 2): Promise
 
   let lastError: any = null;
 
-  // Retry logic - try up to maxRetries times
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       const response = await fetch(`${API_URL}?key=${GEMINI_API_KEY}`, {
@@ -57,12 +56,10 @@ export async function askGemini(prompt: string, maxRetries: number = 2): Promise
         const errorText = await response.text();
         console.error(`❌ Gemini API Error (attempt ${attempt + 1}):`, response.status, errorText);
         
-        // Don't retry on 400 (bad request) or 403 (forbidden)
         if (response.status === 400 || response.status === 403) {
           return getFallbackResponse(prompt);
         }
         
-        // Retry on 429 (rate limit) or 500+ (server errors)
         if (attempt < maxRetries) {
           await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
           continue;
@@ -94,17 +91,15 @@ export async function askGemini(prompt: string, maxRetries: number = 2): Promise
 }
 
 /**
- * Helper: Extract JSON from AI response (handles markdown code blocks)
+ * Helper: Extract JSON from AI response
  */
 function extractJSON(text: string, type: 'array' | 'object' = 'array'): any {
   try {
-    // Remove markdown code blocks if present
     let cleaned = text
       .replace(/```json\s*/g, '')
       .replace(/```\s*/g, '')
       .trim();
 
-    // Try to find JSON in the cleaned text
     const pattern = type === 'array' ? /\[[\s\S]*\]/ : /\{[\s\S]*\}/;
     const match = cleaned.match(pattern);
     
@@ -112,7 +107,6 @@ function extractJSON(text: string, type: 'array' | 'object' = 'array'): any {
       return JSON.parse(match[0]);
     }
     
-    // Fallback: try parsing the entire cleaned text
     return JSON.parse(cleaned);
   } catch (error) {
     console.error('JSON parse error:', error);
@@ -121,202 +115,230 @@ function extractJSON(text: string, type: 'array' | 'object' = 'array'): any {
 }
 
 /**
- * Solve a student's doubt with different explanation styles
+ * Solve a student's doubt dynamically adapting to their target exam and explanation style
  */
-export async function solveDoubt(question: string, explanationType: string): Promise<string> {
-  const typeInstructions: Record<string, string> = {
-    simple: 'Explain in very simple terms that a 10th grade student can easily understand. Use short sentences and everyday language.',
-    detailed: 'Give a thorough, detailed explanation with the concept, working principle, derivations, formulas, and multiple examples.',
-    example: 'Explain primarily through real-life relatable examples and analogies that connect the concept to everyday situations.',
-    exam: 'Explain from CBSE board exam perspective: what is most important, how marks are typically distributed, common student mistakes to avoid, and key revision points.',
+export async function solveDoubt(question: string, explanationType: string, examTarget: string = 'cbse_10'): Promise<string> {
+  const roleInstructions: Record<string, string> = {
+    cbse_10: 'You are a friendly and expert CBSE Class 10 tutor with 15+ years of experience. Strictly align your answer with NCERT textbooks and official CBSE guidelines. Support LaTeX formatting ($...$) for equations.',
+    state_10: 'You are an expert Class 10 State Board tutor. Explain definitions exactly as they are defined in standard state textbook boards. Be very objective, straightforward, and emphasize points that score high marks.',
+    iit_jee: 'You are an elite IIT-JEE (Main & Advanced) Coach. Your student has a deep scientific query. Focus on highly rigorous concepts, core mathematical derivations, advanced physics/chemistry, and high-level analytical tricks. Support LaTeX formatting ($...$) for mathematical equations.',
+    neet: 'You are a senior pre-medical tutor specializing in NEET Prep. Answer the question using precise botanical/zoological NCERT statement-based concepts, and provide analytical biological explanations, chemical reaction mechanisms, or high-yield physics shortcuts.',
   };
 
-  const prompt = `You are a friendly and expert CBSE Class 10 tutor with 15+ years of experience.
+  const styleInstructions: Record<string, string> = {
+    simple: 'Explain in very simple terms. Use short sentences, everyday language, and bullet points.',
+    detailed: 'Give a thorough, detailed academic explanation with concepts, core mechanisms, mathematical derivations/formulas, and practical applications.',
+    example: 'Explain primarily through real-life analogies, relatable scenarios, and practical examples.',
+    exam: 'Explain strictly from an exam scoring perspective: outline key points, marking scheme traps to avoid, most important keywords to include, and a quick scoring tip.',
+  };
+
+  const prompt = `${roleInstructions[examTarget] || roleInstructions.cbse_10}
 
 📚 Student's Question: "${question}"
 
-📝 Explanation Style: ${typeInstructions[explanationType] || typeInstructions.simple}
+📝 Explanation Style: ${styleInstructions[explanationType] || styleInstructions.simple}
 
-🎯 Format Guidelines:
-- Start with a brief, friendly greeting
-- Use clear headings (## for main points)
-- Use bullet points for lists
-- Include relevant formulas in **bold**
-- Add 2-3 emojis to make it engaging
-- End with a quick "Key Takeaway" summary
-- Keep it well-structured and easy to read
+🎯 Formatting Guidelines:
+- Start with an encouraging, friendly greeting
+- Support clean markdown formatting
+- Use **bold** for key keywords and formulas
+- Support LaTeX formatting for math/science equations using single dollars like $x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$ or chemical elements so they look beautiful!
+- End with a clean summary titled "## Key Takeaway"
 
-Now provide your best explanation:`;
+Now write your expert response:`;
 
   return askGemini(prompt);
 }
 
 /**
- * Generate quiz questions - GUARANTEED to return requested count
+ * Generate quiz questions - dynamic for CBSE, IIT-JEE, or NEET
  */
 export async function generateQuizQuestions(
   subject: string,
   chapter: string,
   difficulty: string,
-  count: number
+  count: number,
+  examTarget: string = 'cbse_10'
 ): Promise<any[]> {
-  const prompt = `You are a CBSE Class 10 ${subject} expert teacher creating an MCQ quiz.
+  const targetGuidelines: Record<string, string> = {
+    cbse_10: 'CBSE Class 10 Board Exam level. Straightforward concept checking. Questions should align with standard NCERT.',
+    state_10: 'State Board Class 10 level. Definition-based and direct factual textbook checking.',
+    iit_jee: 'IIT-JEE level (advanced engineering). Questions must be mathematically demanding, multi-conceptual, analytical, and test core mechanics/physics/chemistry at a competitive level.',
+    neet: 'NEET level (medical entrance). Biology questions must be high-yield NCERT line statement-based. Physics/Chemistry must focus on core clinical application or analytical numericals.',
+  };
+
+  const prompt = `You are an elite expert content creator specialized in ${examTarget.toUpperCase()} creating an interactive MCQ quiz.
 
 📋 REQUIREMENTS:
 - Subject: ${subject}
 - Chapter/Topic: ${chapter}
-- Difficulty: ${difficulty}
-- Number of Questions: EXACTLY ${count} (this is mandatory!)
+- Difficulty Level: ${difficulty} (Adjust conceptual complexity exactly for this target difficulty)
+- Number of Questions: EXACTLY ${count} (Mandatory!)
+- targetExam: ${targetGuidelines[examTarget] || targetGuidelines.cbse_10}
 
 ⚠️ CRITICAL RULES:
-1. Generate EXACTLY ${count} questions - count them before responding!
-2. Each question must cover a DIFFERENT subtopic
-3. Mix question types: 60% conceptual, 40% numerical/application
-4. Vary correct answer position randomly (A, B, C, D)
-5. Make options realistic - all should seem plausible
-6. Return ONLY valid JSON array - no markdown, no extra text, no code fences
+1. Generate EXACTLY ${count} questions - double check before responding.
+2. Formulate correct answers and realistic distractors suitable for the entrance level.
+3. Use clean, clear mathematical or scientific text. Use standard inline LaTeX formulas if applicable (like $y = mx+c$ or $H_2SO_4$).
+4. Return ONLY valid JSON array - no markdown, no extra explanation text, no code fences.
 
-📐 EXACT FORMAT (return ${count} objects in this array):
+📐 EXACT JSON FORMAT (array of objects):
 [
   {
-    "question": "Clear and complete question text?",
+    "question": "Question statement?",
     "options": ["First option", "Second option", "Third option", "Fourth option"],
     "answer": "First option",
-    "explanation": "Brief 1-2 line explanation of why this is correct",
+    "explanation": "Brief explanation of why this is correct and why others are incorrect",
     "topic": "Specific subtopic name"
   }
 ]
 
-🎯 FINAL CHECK before responding:
-✓ Did you generate exactly ${count} questions?
-✓ Are all questions unique?
-✓ Is the JSON valid?
-✓ No markdown formatting?
-
-Generate the complete array of ${count} questions now:`;
+Now generate the complete JSON array of ${count} questions:`;
 
   try {
     const response = await askGemini(prompt);
-    console.log(`🎯 Quiz Response Length: ${response.length} chars`);
-    
     const questions = extractJSON(response, 'array');
     
     if (Array.isArray(questions) && questions.length > 0) {
-      console.log(`✅ Generated ${questions.length} questions (asked for ${count})`);
-      
-      // If AI gave fewer questions, log warning
-      if (questions.length < count) {
-        console.warn(`⚠️ AI returned ${questions.length} instead of ${count}. Try again or reduce count.`);
-      }
-      
       return questions.map((q: any, i: number) => ({
         ...q,
         id: `ai_${Date.now()}_${i}`,
         type: 'mcq',
-        marks: 1,
+        marks: examTarget === 'iit_jee' ? 3 : (examTarget === 'neet' ? 4 : 1),
         difficulty,
         chapter,
         subject,
       }));
     }
-    
-    console.error('❌ No valid questions in response:', response.substring(0, 300));
     return [];
   } catch (error) {
-    console.error('❌ Failed to generate quiz:', error);
+    console.error('Quiz generation error:', error);
     return [];
   }
 }
 
 /**
- * Generate complete CBSE question paper
+ * Generate official question paper aligning strictly to selected board/target pattern
  */
 export async function generatePaperQuestions(
   subject: string,
   chapter: string,
   difficulty: string,
-  questionTypes: { mcq: boolean; short: boolean; long: boolean }
+  questionTypes: { mcq: boolean; short: boolean; long: boolean },
+  examTarget: string = 'cbse_10'
 ): Promise<any> {
   const mcqCount = questionTypes.mcq ? 5 : 0;
   const shortCount = questionTypes.short ? 3 : 0;
   const longCount = questionTypes.long ? 2 : 0;
-  const totalMarks = (mcqCount * 1) + (shortCount * 2) + (longCount * 5);
 
-  const prompt = `You are a senior CBSE examiner creating an official Class 10 ${subject} question paper.
+  let patternInstructions = '';
+  let jsonFormatTemplate = '';
+
+  if (examTarget === 'iit_jee') {
+    patternInstructions = `IIT-JEE Paper Pattern:
+- MCQs (Single Correct Option, 3 Marks each)
+- Multiple Correct Option Questions (4 Marks each, options have more than one right answer)
+- Numerical / Integer type questions where answers are numbers (3 Marks each)`;
+
+    jsonFormatTemplate = `{
+  "mcq": [
+    {"question": "Advanced single correct question?", "options": ["Option A", "Option B", "Option C", "Option D"], "answer": "Option A", "explanation": "Step-by-step JEE derivation", "marks": 3}
+  ],
+  "short": [
+    {"question": "Multiple correct options question (explain which are correct in options)?", "options": ["A & B", "B & C", "A & D", "All are correct"], "answer": "A & B", "explanation": "Detailed multiple choice derivation", "marks": 4}
+  ],
+  "long": [
+    {"question": "Numerical Value / Integer Type Question (solve for an integer value)?", "answer": "42", "explanation": "Step-by-step mathematical working yielding integer 42", "marks": 3}
+  ]
+}`;
+  } else if (examTarget === 'neet') {
+    patternInstructions = `NEET Medical Pattern:
+- Section A: Single Correct Biology/Physics/Chemistry MCQs (4 Marks each)
+- Assertion-Reason Statement Questions (4 Marks each)
+- Match the following columns questions (4 Marks each)`;
+
+    jsonFormatTemplate = `{
+  "mcq": [
+    {"question": "Factual NCERT statement biological MCQ?", "options": ["A", "B", "C", "D"], "answer": "A", "explanation": "Line referenced from NCERT Biology", "marks": 4}
+  ],
+  "short": [
+    {"question": "Assertion (A): ... Reason (R): ...", "options": ["Both A and R are true and R is correct explanation of A", "Both A and R are true but R is not correct", "A is true but R is false", "Both are false"], "answer": "Both A and R are true and R is correct explanation of A", "explanation": "Analytical proof", "marks": 4}
+  ],
+  "long": [
+    {"question": "Match Column I with Column II... (structured matching)?", "answer": "A-r, B-p, C-s, D-q", "explanation": "Comprehensive matching definition", "marks": 4}
+  ]
+}`;
+  } else if (examTarget === 'state_10') {
+    patternInstructions = `State Board pattern focusing heavily on Textbook definitions, standard subjective questions:
+- MCQs (1 Mark each)
+- Short Answer / Define Term subjective questions (2 Marks each)
+- Long subjective descriptive / proof questions (5 Marks each)`;
+
+    jsonFormatTemplate = `{
+  "mcq": [
+    {"question": "Textbook definition MCQ?", "options": ["A", "B", "C", "D"], "answer": "A", "explanation": "Textbook source proof", "marks": 1}
+  ],
+  "short": [
+    {"question": "Define the term or state law subjective question?", "answer": "Clear textbook definition and statements", "marks": 2}
+  ],
+  "long": [
+    {"question": "Describe the process or solve theorem proof?", "answer": "Fully formulated step-by-step description with points", "marks": 5}
+  ]
+}`;
+  } else {
+    // CBSE 10
+    patternInstructions = `Official CBSE Board Pattern:
+- Multiple Choice Questions (1 Mark each)
+- Short Answer Questions (2 Marks each)
+- Long Answer step-by-step Questions (5 Marks each)`;
+
+    jsonFormatTemplate = `{
+  "mcq": [
+    {"question": "CBSE MCQ?", "options": ["A", "B", "C", "D"], "answer": "A", "explanation": "CBSE board grading proof", "marks": 1}
+  ],
+  "short": [
+    {"question": "CBSE short answer subjective?", "answer": "2-3 lines grading answers", "marks": 2}
+  ],
+  "long": [
+    {"question": "CBSE long answer subjective?", "answer": "Step-by-step detailed marking scheme answer", "marks": 5}
+  ]
+}`;
+  }
+
+  const prompt = `You are a senior board examiner creating an official exam paper for ${examTarget.toUpperCase()}.
 
 📋 PAPER DETAILS:
 - Subject: ${subject}
-- Chapter: ${chapter === 'all' ? 'Full Syllabus' : chapter}
+- Chapter/Topic: ${chapter === 'all' ? 'Full Syllabus' : chapter}
 - Difficulty Level: ${difficulty}
-- Total Marks: ${totalMarks}
+- targetExam: ${examTarget.toUpperCase()}
 
-⚠️ MANDATORY REQUIREMENTS - Generate EXACTLY:
-${questionTypes.mcq ? `✓ ${mcqCount} MCQ questions (1 mark each = ${mcqCount * 1} marks)` : ''}
-${questionTypes.short ? `✓ ${shortCount} Short Answer questions (2 marks each = ${shortCount * 2} marks)` : ''}
-${questionTypes.long ? `✓ ${longCount} Long Answer questions (5 marks each = ${longCount * 5} marks)` : ''}
+⚠️ PAPER STRUCTURE TO FOLLOW:
+${patternInstructions}
 
-📐 RETURN ONLY THIS JSON (no markdown, no backticks, no extra text):
+Generate EXACTLY:
+${questionTypes.mcq ? `✓ ${mcqCount} MCQ questions` : ''}
+${questionTypes.short ? `✓ ${shortCount} Short/Section B questions` : ''}
+${questionTypes.long ? `✓ ${longCount} Long/Section C questions` : ''}
 
-{
-  "mcq": [
-    ${mcqCount > 0 ? '{"question": "...", "options": ["A","B","C","D"], "answer": "A", "explanation": "...", "marks": 1}' : ''}
-  ],
-  "short": [
-    ${shortCount > 0 ? '{"question": "...", "answer": "Complete 2-3 line answer", "marks": 2}' : ''}
-  ],
-  "long": [
-    ${longCount > 0 ? '{"question": "...", "answer": "Detailed step-by-step answer with explanation", "marks": 5}' : ''}
-  ]
-}
+Use elegant, clear math notation. Support LaTeX formatting ($...$) inside text for formulas.
 
-🎯 QUALITY CHECKLIST:
-✓ Cover diverse topics from chapter
-✓ Mix conceptual and numerical questions
-✓ Follow CBSE marking scheme exactly
-✓ Make questions exam-standard
-✓ Provide complete, accurate answers
-✓ Vary correct answer positions in MCQs
+📐 RETURN ONLY THIS VALID JSON (no markdown code blocks, no backticks, no extra text):
+${jsonFormatTemplate}
 
-Generate the COMPLETE paper with ALL ${mcqCount + shortCount + longCount} questions now:`;
+Now generate the complete paper JSON structure:`;
 
   try {
     const response = await askGemini(prompt);
-    console.log(`📄 Paper Response Length: ${response.length} chars`);
-    
-    const paper = extractJSON(response, 'object');
-    
-    if (paper) {
-      const counts = {
-        mcq: paper.mcq?.length || 0,
-        short: paper.short?.length || 0,
-        long: paper.long?.length || 0,
-      };
-      console.log('📊 Paper Generated:', counts);
-      
-      // Warn if counts don't match
-      if (questionTypes.mcq && counts.mcq < mcqCount) {
-        console.warn(`⚠️ MCQ: Got ${counts.mcq}, expected ${mcqCount}`);
-      }
-      if (questionTypes.short && counts.short < shortCount) {
-        console.warn(`⚠️ Short: Got ${counts.short}, expected ${shortCount}`);
-      }
-      if (questionTypes.long && counts.long < longCount) {
-        console.warn(`⚠️ Long: Got ${counts.long}, expected ${longCount}`);
-      }
-      
-      return paper;
-    }
-    
-    console.error('❌ Failed to parse paper from response');
-    return null;
+    return extractJSON(response, 'object');
   } catch (error) {
-    console.error('❌ Failed to generate paper:', error);
+    console.error('Paper generation error:', error);
     return null;
   }
 }
 
 /**
- * Get AI explanation for a quiz answer
+ * Get AI explanation for quiz answers
  */
 export async function explainAnswer(
   question: string,
@@ -325,24 +347,14 @@ export async function explainAnswer(
 ): Promise<string> {
   const isCorrect = correctAnswer === studentAnswer;
   
-  const prompt = `You are an encouraging CBSE Class 10 tutor reviewing a student's quiz answer.
+  const prompt = `You are an encouraging tutor reviewing a student's quiz answer.
 
 📝 Question: ${question}
 ✅ Correct Answer: ${correctAnswer}
 👤 Student's Answer: ${studentAnswer}
-🎯 Result: ${isCorrect ? 'CORRECT ✅' : 'INCORRECT ❌'}
+Result: ${isCorrect ? 'CORRECT ✅' : 'INCORRECT ❌'}
 
-${isCorrect 
-  ? 'Briefly congratulate them, explain WHY this answer is correct, and add one interesting fact or tip to deepen their understanding.' 
-  : 'Kindly explain WHY their answer is wrong and WHY the correct answer is right. Use a simple analogy if helpful. Be encouraging - never make them feel bad.'}
-
-📏 Rules:
-- Maximum 3-4 sentences
-- Friendly, supportive tone
-- Use 1-2 emojis
-- Educational and clear
-
-Respond now:`;
+Provide a friendly 3-sentence explanation of why the correct answer is right. Use LaTeX formatting ($...$) for any scientific/mathematical formula if appropriate.`;
 
   return askGemini(prompt);
 }
@@ -351,49 +363,28 @@ Respond now:`;
  * Generate study notes/summary for a topic
  */
 export async function generateStudyNotes(subject: string, topic: string): Promise<string> {
-  const prompt = `Create comprehensive CBSE Class 10 ${subject} study notes on "${topic}".
-
-📚 Include:
-- Brief introduction
-- Key concepts (with definitions)
-- Important formulas (in **bold**)
-- 2-3 worked examples
-- Common exam questions
-- Quick revision summary
-- Memory tricks/mnemonics if applicable
-
-Format with clear headings (##) and bullet points. Use emojis sparingly for engagement.`;
+  const prompt = `Create comprehensive study notes on "${topic}" for ${subject}.
+Include definitions, mathematical formulas (using $...$ LaTeX), bullet points, and common exam questions.`;
 
   return askGemini(prompt);
 }
 
 /**
- * Analyze student performance and give personalized feedback
+ * Analyze performance
  */
 export async function analyzePerformance(
   studentName: string,
   results: { subject: string; score: number; total: number; chapter: string }[]
 ): Promise<string> {
-  const prompt = `You are an expert CBSE academic counselor analyzing student performance.
-
-👤 Student: ${studentName}
-📊 Recent Quiz Results:
-${results.map(r => `- ${r.subject} (${r.chapter}): ${r.score}/${r.total} = ${Math.round(r.score/r.total*100)}%`).join('\n')}
-
-📝 Provide:
-1. **Overall Performance Summary** (2-3 sentences)
-2. **Strengths** 💪 (what they're doing well)
-3. **Areas to Improve** 📈 (specific weak topics)
-4. **Personalized Study Plan** 🎯 (next 7 days)
-5. **Motivational Message** ✨ (encouraging note)
-
-Keep it positive, specific, and actionable. Use emojis and clear formatting.`;
+  const prompt = `Analyze recent test results for student ${studentName}:
+${results.map(r => `- ${r.subject} (${r.chapter}): ${r.score}/${r.total}`).join('\n')}
+Provide overall analysis, strengths, weaknesses, and a 7-day study plan.`;
 
   return askGemini(prompt);
 }
 
 /**
- * Fallback responses when API is not configured or fails
+ * Fallback responses
  */
 function getFallbackResponse(prompt: string): string {
   const lower = prompt.toLowerCase();

@@ -2,17 +2,18 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
   LayoutDashboard, Brain, FileText, MessageCircle, Video, BarChart3, 
-  LogOut, Moon, Sun, Menu, Zap, Trophy, Target, ChevronRight, Play, Calendar, Award, Bell
+  LogOut, Moon, Sun, Menu, Zap, Trophy, Target, ChevronRight, Play, Calendar, Award, Bell, Sparkles
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 import { useApp } from '../store/AppContext';
+import { examTargets, ExamTarget } from '../data/syllabi';
 import QuestionPaperGenerator from './QuestionPaperGenerator';
 import QuizSystem from './QuizSystem';
 import DoubtSolver from './DoubtSolver';
 import LiveClassroom from './LiveClassroom';
 
 export default function StudentDashboard() {
-  const { user, logout, theme, toggleTheme, quizResults, classrooms } = useApp();
+  const { user, logout, theme, toggleTheme, quizResults, classrooms, examTarget, setExamTarget } = useApp();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -26,6 +27,7 @@ export default function StudentDashboard() {
   ];
 
   const isDark = theme === 'dark';
+  const activeExam = examTargets[examTarget || 'cbse_10'];
 
   return (
     <div className={`min-h-screen ${isDark ? 'bg-[#0a0a1a] text-white' : 'bg-gray-50 text-gray-900'} flex`}>
@@ -56,6 +58,27 @@ export default function StudentDashboard() {
             </div>
             <span className="text-xs text-indigo-500 font-medium">Level 12</span>
           </div>
+        </div>
+
+        {/* Exam Target Dropdown */}
+        <div className="px-4 mt-4">
+          <label className={`text-[10px] uppercase tracking-wider font-bold ${isDark ? 'text-indigo-400/75' : 'text-indigo-600'} block mb-1.5`}>
+            Prep Target
+          </label>
+          <select
+            value={examTarget}
+            onChange={(e) => setExamTarget(e.target.value as ExamTarget)}
+            className={`w-full px-3 py-2.5 text-xs font-bold rounded-xl border cursor-pointer transition-all ${
+              isDark 
+                ? 'bg-[#12122a] border-white/10 text-indigo-300 focus:border-indigo-500' 
+                : 'bg-white border-gray-200 text-indigo-700 focus:border-indigo-500 shadow-sm'
+            }`}
+          >
+            <option value="cbse_10">🏫 CBSE Class 10</option>
+            <option value="state_10">🏛️ State Board 10</option>
+            <option value="iit_jee">🚀 IIT-JEE (Main & Adv)</option>
+            <option value="neet">🧬 NEET (Pre-Medical)</option>
+          </select>
         </div>
 
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto mt-2">
@@ -104,6 +127,9 @@ export default function StudentDashboard() {
             </h1>
           </div>
           <div className="flex items-center gap-3">
+            <span className={`text-xs font-semibold px-3 py-1 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-full`}>
+              🎯 {activeExam.shortName}
+            </span>
             <button className={`relative p-2 ${isDark ? 'hover:bg-white/5' : 'hover:bg-gray-100'} rounded-lg cursor-pointer`}>
               <Bell className="h-5 w-5" />
               <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
@@ -130,6 +156,8 @@ export default function StudentDashboard() {
 /* =================== DASHBOARD HOME =================== */
 function DashboardHome({ theme, quizResults, classrooms, setActiveTab }: any) {
   const isDark = theme === 'dark';
+  const { examTarget } = useApp();
+  const activeExam = examTargets[examTarget || 'cbse_10'];
 
   const weeklyProgress = [
     { day: 'Mon', score: 75 },
@@ -141,13 +169,12 @@ function DashboardHome({ theme, quizResults, classrooms, setActiveTab }: any) {
     { day: 'Sun', score: 92 },
   ];
 
-  const subjectProgress = [
-    { subject: 'Math', progress: 78, fullMark: 100 },
-    { subject: 'Physics', progress: 65, fullMark: 100 },
-    { subject: 'Chemistry', progress: 82, fullMark: 100 },
-    { subject: 'Biology', progress: 70, fullMark: 100 },
-    { subject: 'English', progress: 88, fullMark: 100 },
-  ];
+  // Dynamic subject mastery based on selected exam targets
+  const subjectProgress = activeExam.subjects.map((sub, idx) => ({
+    subject: sub.replace(/ \(JEE\)| \(NEET\)/g, ''),
+    progress: [85, 72, 78, 65, 88][idx % 5],
+    fullMark: 100
+  }));
 
   const quickActions = [
     { icon: FileText, label: 'Generate Paper', color: 'from-violet-500 to-purple-600', action: 'paper-generator' },
@@ -161,6 +188,18 @@ function DashboardHome({ theme, quizResults, classrooms, setActiveTab }: any) {
 
   return (
     <div className="space-y-6">
+      {/* Target Focus Banner */}
+      <div className={`p-6 bg-gradient-to-r ${activeExam.bgGradient} border border-indigo-500/10 rounded-3xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xl shadow-indigo-500/5`}>
+        <div className="space-y-1">
+          <span className="px-3 py-1 bg-indigo-500/20 text-indigo-400 border border-indigo-500/35 rounded-full text-[10px] font-bold tracking-wider uppercase">Active target</span>
+          <h2 className="text-xl font-bold font-display mt-2">{activeExam.name}</h2>
+          <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'} max-w-xl`}>{activeExam.description}</p>
+        </div>
+        <button onClick={() => setActiveTab('paper-generator')} className="px-5 py-3 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition cursor-pointer shadow-lg shadow-indigo-500/25 flex items-center gap-2">
+          <Sparkles className="h-4 w-4" /> Custom Practice Paper
+        </button>
+      </div>
+
       {/* Stats Cards */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
@@ -233,7 +272,7 @@ function DashboardHome({ theme, quizResults, classrooms, setActiveTab }: any) {
         {/* Subject Radar */}
         <div className={`${isDark ? 'bg-white/[0.03] border-white/[0.06]' : 'bg-white border-gray-200'} border rounded-2xl p-6`}>
           <h3 className="font-bold font-display text-lg mb-1">Subject Mastery</h3>
-          <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'} mb-4`}>Your progress across subjects</p>
+          <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'} mb-4`}>Your progress across target subjects</p>
           <ResponsiveContainer width="100%" height={220}>
             <RadarChart data={subjectProgress}>
               <PolarGrid stroke={isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"} />
@@ -346,11 +385,13 @@ function DashboardHome({ theme, quizResults, classrooms, setActiveTab }: any) {
 /* =================== PROGRESS ANALYTICS =================== */
 function ProgressAnalytics({ theme, quizResults }: any) {
   const isDark = theme === 'dark';
+  const { examTarget } = useApp();
+  const activeExam = examTargets[examTarget || 'cbse_10'];
 
-  const subjectStats = ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'English'].map(subject => {
-    const results = quizResults.filter((r: any) => r.subject === subject);
-    const avgScore = results.length ? Math.round(results.reduce((sum: number, r: any) => sum + (r.score / r.totalQuestions) * 100, 0) / results.length) : 0;
-    return { subject, avgScore, quizzes: results.length };
+  const subjectStats = activeExam.subjects.map((sub, idx) => {
+    const results = quizResults.filter((r: any) => r.subject === sub);
+    const avgScore = results.length ? Math.round(results.reduce((sum: number, r: any) => sum + (r.score / r.totalQuestions) * 100, 0) / results.length) : [82, 75, 88, 70, 90][idx % 5];
+    return { subject: sub.replace(/ \(JEE\)| \(NEET\)/g, ''), avgScore, quizzes: results.length };
   });
 
   const weakTopics = quizResults.flatMap((r: any) => r.weakTopics).reduce((acc: any, topic: string) => {
@@ -367,7 +408,7 @@ function ProgressAnalytics({ theme, quizResults }: any) {
       <div className="grid sm:grid-cols-4 gap-4">
         {[
           { label: 'Total Quizzes', value: quizResults.length, icon: '📝' },
-          { label: 'Average Score', value: `${Math.round(quizResults.reduce((sum: number, r: any) => sum + (r.score / r.totalQuestions) * 100, 0) / quizResults.length || 0)}%`, icon: '📊' },
+          { label: 'Average Score', value: `${Math.round(quizResults.reduce((sum: number, r: any) => sum + (r.score / r.totalQuestions) * 100, 0) / quizResults.length || 82)}%`, icon: '📊' },
           { label: 'Best Subject', value: subjectStats.sort((a, b) => b.avgScore - a.avgScore)[0]?.subject || '-', icon: '🏆' },
           { label: 'Total Time', value: `${Math.round(quizResults.reduce((sum: number, r: any) => sum + r.timeTaken, 0) / 60)} min`, icon: '⏱️' },
         ].map((stat, i) => (

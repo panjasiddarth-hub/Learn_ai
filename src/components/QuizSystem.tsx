@@ -2,12 +2,17 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Zap, Clock, CheckCircle, XCircle, Trophy, Target, ChevronRight, RotateCcw, Lightbulb, Award } from 'lucide-react';
 import { useApp } from '../store/AppContext';
-import { subjects, chapters, questionBank } from '../data/questions';
+import { examTargets } from '../data/syllabi';
+import { questionBank } from '../data/questions';
 import { generateQuizQuestions, isAPIConfigured } from '../services/geminiAI';
 
 export default function QuizSystem() {
-  const { theme, addQuizResult, user } = useApp();
+  const { theme, addQuizResult, user, examTarget } = useApp();
   const isDark = theme === 'dark';
+
+  const activeExam = examTargets[examTarget];
+  const subjects = activeExam.subjects;
+  const chapters = activeExam.chapters;
 
   const [stage, setStage] = useState<'setup' | 'quiz' | 'result'>('setup');
   const [config, setConfig] = useState({ subject: '', chapter: '', difficulty: 'medium', questionCount: 10 });
@@ -17,6 +22,20 @@ export default function QuizSystem() {
   const [timer, setTimer] = useState(0);
   const [showHint, setShowHint] = useState(false);
   const [result, setResult] = useState<any>(null);
+
+  // Reset config when syllabus shifts
+  useEffect(() => {
+    setConfig({
+      subject: '',
+      chapter: '',
+      difficulty: 'medium',
+      questionCount: 10
+    });
+    setStage('setup');
+    setQuestions([]);
+    setCurrentQ(0);
+    setAnswers({});
+  }, [examTarget]);
 
   // Timer
   useEffect(() => {
@@ -41,7 +60,8 @@ export default function QuizSystem() {
           config.subject,
           config.chapter,
           config.difficulty,
-          config.questionCount
+          config.questionCount,
+          examTarget
         );
       } catch (error) {
         console.error('AI generation failed, using fallback');
@@ -88,7 +108,7 @@ export default function QuizSystem() {
       if (answers[i] === q.answer) {
         correct++;
       } else {
-        if (!weakTopics.includes(q.topic)) weakTopics.push(q.topic);
+        if (q.topic && !weakTopics.includes(q.topic)) weakTopics.push(q.topic);
       }
     });
 
@@ -124,8 +144,8 @@ export default function QuizSystem() {
                   <Zap className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold font-display">AI-Powered Quiz</h2>
-                  <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Test your knowledge with adaptive questions</p>
+                  <h2 className="text-xl font-bold font-display">Syllabus-Bound AI Quiz</h2>
+                  <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Test your depth in {activeExam.name} with instant conceptual tracking</p>
                 </div>
               </div>
             </div>
@@ -145,7 +165,7 @@ export default function QuizSystem() {
                 </div>
 
                 <div>
-                  <label className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'} font-medium mb-1.5 block`}>Chapter</label>
+                  <label className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'} font-medium mb-1.5 block`}>Chapter / Topic</label>
                   <select value={config.chapter} onChange={e => setConfig({ ...config, chapter: e.target.value })} disabled={!config.subject}
                     className={`w-full px-4 py-3 ${isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-gray-50 border-gray-200'} border rounded-xl text-sm cursor-pointer focus:border-amber-500 disabled:opacity-50`}>
                     <option value="" className={isDark ? 'bg-[#12122a]' : ''}>Select Chapter</option>
@@ -181,9 +201,9 @@ export default function QuizSystem() {
                 <button onClick={startQuiz} disabled={!config.subject || !config.chapter || isLoadingQuestions}
                   className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-xl hover:from-amber-400 hover:to-orange-400 transition-all shadow-lg shadow-amber-500/25 cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2">
                   {isLoadingQuestions ? (
-                    <><span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span> {aiConnected ? 'AI Generating Questions...' : 'Loading...'}</>
+                    <><span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span> {aiConnected ? 'AI Assembling Exam Questions...' : 'Loading...'}</>
                   ) : (
-                    <><Zap className="h-5 w-5" /> Start Quiz {aiConnected && <span className="text-xs opacity-80">(AI Powered)</span>}</>
+                    <><Zap className="h-5 w-5" /> Assemble Exam Quiz {aiConnected && <span className="text-xs opacity-80">(AI Powered)</span>}</>
                   )}
                 </button>
               </div>
@@ -209,7 +229,7 @@ export default function QuizSystem() {
 
             {/* Question Card */}
             <div className={`${isDark ? 'bg-white/[0.03] border-white/[0.06]' : 'bg-white border-gray-200'} border rounded-2xl p-6`}>
-              <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'} mb-2`}>{questions[currentQ].chapter} • {questions[currentQ].topic}</p>
+              <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'} mb-2`}>{questions[currentQ].chapter} • {questions[currentQ].topic || 'Topic'}</p>
               <h3 className="text-lg font-bold mb-6">{questions[currentQ].question}</h3>
 
               <div className="space-y-3">
@@ -233,7 +253,7 @@ export default function QuizSystem() {
                 <div className={`mt-4 p-4 ${isDark ? 'bg-blue-500/10 border-blue-500/20' : 'bg-blue-50 border-blue-200'} border rounded-xl`}>
                   <p className="text-sm flex items-start gap-2">
                     <Lightbulb className="h-4 w-4 text-blue-500 mt-0.5" />
-                    <span className={isDark ? 'text-blue-300' : 'text-blue-700'}>{questions[currentQ].explanation.substring(0, 100)}...</span>
+                    <span className={isDark ? 'text-blue-300' : 'text-blue-700'}>{questions[currentQ].explanation || 'Try solving using core syllabus concepts.'}</span>
                   </p>
                 </div>
               )}

@@ -1,14 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileText, Download, Sparkles, Check, Loader2, Printer, Eye } from 'lucide-react';
 import { useApp } from '../store/AppContext';
-import { subjects, chapters } from '../data/questions';
+import { examTargets } from '../data/syllabi';
 import { generatePaperQuestions } from '../services/geminiAI';
 
 function downloadPaperAsText(paper: any) {
   let text = '';
   text += `${'='.repeat(60)}\n`;
-  text += `${paper.board} BOARD EXAMINATION\n`;
+  text += `${paper.board} EXAM PRACTICE PAPER\n`;
   text += `Class ${paper.class} - ${paper.subject}\n`;
   text += `${paper.chapter === 'all' ? 'Full Syllabus' : paper.chapter}\n`;
   text += `${'='.repeat(60)}\n\n`;
@@ -21,9 +21,9 @@ function downloadPaperAsText(paper: any) {
 
   let qNum = 1;
   const sectionNames: Record<string, string> = {
-    mcq: 'SECTION A: MULTIPLE CHOICE QUESTIONS (1 mark each)',
-    short: 'SECTION B: SHORT ANSWER QUESTIONS (2 marks each)',
-    long: 'SECTION C: LONG ANSWER QUESTIONS (5 marks each)',
+    mcq: 'SECTION A: OBJECTIVE / MULTIPLE CHOICE QUESTIONS',
+    short: 'SECTION B: SHORT / MULTI-OPTION QUESTIONS',
+    long: 'SECTION C: LONG / SUBJECTIVE / INT-TYPE QUESTIONS',
   };
 
   for (const [type, questions] of Object.entries(paper.sections) as any) {
@@ -63,14 +63,18 @@ function downloadPaperAsText(paper: any) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${paper.board}_Class${paper.class}_${paper.subject}_Paper.txt`;
+  a.download = `${paper.board}_${paper.subject}_Paper.txt`;
   a.click();
   URL.revokeObjectURL(url);
 }
 
 export default function QuestionPaperGenerator() {
-  const { theme, addToast } = useApp();
+  const { theme, addToast, examTarget } = useApp();
   const isDark = theme === 'dark';
+
+  const activeExam = examTargets[examTarget];
+  const subjects = activeExam.subjects;
+  const chapters = activeExam.chapters;
 
   const [formData, setFormData] = useState({
     board: 'CBSE',
@@ -86,6 +90,17 @@ export default function QuestionPaperGenerator() {
     },
   });
 
+  // Reset selected subjects/chapters on exam target change
+  useEffect(() => {
+    setFormData(prev => ({
+      ...prev,
+      board: examTarget === 'cbse_10' ? 'CBSE' : examTarget === 'state_10' ? 'State Board' : examTarget === 'iit_jee' ? 'IIT-JEE' : 'NEET',
+      class: examTarget.includes('10') ? '10' : 'Competitive Prep',
+      subject: '',
+      chapter: '',
+    }));
+  }, [examTarget]);
+
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedPaper, setGeneratedPaper] = useState<any>(null);
   const [showPreview, setShowPreview] = useState(false);
@@ -99,7 +114,6 @@ export default function QuestionPaperGenerator() {
       return;
     }
 
-    // Check at least one question type is selected
     const hasAnyType = Object.values(formData.questionTypes).some(v => v);
     if (!hasAnyType) {
       addToast('Select at least one question type!', 'error');
@@ -110,46 +124,48 @@ export default function QuestionPaperGenerator() {
     setGenerationStatus('🤖 Connecting to Gemini AI...');
     
     try {
-      // Update status
-      setTimeout(() => setGenerationStatus('📝 AI is analyzing CBSE pattern...'), 800);
-      setTimeout(() => setGenerationStatus('✨ Generating questions with AI...'), 2000);
+      setTimeout(() => setGenerationStatus(`📝 AI is analyzing ${activeExam.shortName} pattern...`), 800);
+      setTimeout(() => setGenerationStatus('✨ Formulating syllabus-bound questions...'), 2000);
       
-      // 🚀 ACTUALLY CALL THE AI NOW!
       const aiResponse = await generatePaperQuestions(
         formData.subject,
         formData.chapter,
         formData.difficulty,
-        formData.questionTypes
+        formData.questionTypes,
+        examTarget
       );
 
       if (!aiResponse) {
         throw new Error('AI failed to generate paper');
       }
 
-      // Add unique IDs to each question
+      const mcqMark = examTarget === 'iit_jee' ? 3 : (examTarget === 'neet' ? 4 : 1);
+      const shortMark = examTarget === 'iit_jee' ? 4 : (examTarget === 'neet' ? 4 : 2);
+      const longMark = examTarget === 'iit_jee' ? 3 : (examTarget === 'neet' ? 4 : 5);
+
       const sections = {
         mcq: (aiResponse.mcq || []).map((q: any, i: number) => ({
           ...q,
           id: `mcq_${Date.now()}_${i}`,
           type: 'mcq',
-          marks: q.marks || 1,
+          marks: q.marks || mcqMark,
         })),
         short: (aiResponse.short || []).map((q: any, i: number) => ({
           ...q,
           id: `short_${Date.now()}_${i}`,
           type: 'short',
-          marks: q.marks || 2,
+          marks: q.marks || shortMark,
         })),
         long: (aiResponse.long || []).map((q: any, i: number) => ({
           ...q,
           id: `long_${Date.now()}_${i}`,
           type: 'long',
-          marks: q.marks || 5,
+          marks: q.marks || longMark,
         })),
       };
 
       const totalQuestions = sections.mcq.length + sections.short.length + sections.long.length;
-      const calculatedMarks = (sections.mcq.length * 1) + (sections.short.length * 2) + (sections.long.length * 5);
+      const calculatedMarks = (sections.mcq.length * mcqMark) + (sections.short.length * shortMark) + (sections.long.length * longMark);
 
       const paper = {
         id: String(Date.now()),
@@ -187,7 +203,7 @@ export default function QuestionPaperGenerator() {
           </div>
           <div>
             <h2 className="text-xl font-bold font-display">AI Question Paper Generator</h2>
-            <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Generate CBSE-pattern papers instantly with Gemini AI ✨</p>
+            <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Generate standard exam papers for {activeExam.name} with Gemini AI ✨</p>
           </div>
         </div>
       </div>
@@ -195,37 +211,12 @@ export default function QuestionPaperGenerator() {
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Form */}
         <div className={`${isDark ? 'bg-white/[0.03] border-white/[0.06]' : 'bg-white border-gray-200'} border rounded-2xl p-6`}>
-          <h3 className="font-bold font-display text-lg mb-6">Paper Configuration</h3>
+          <h3 className="font-bold font-display text-lg mb-4">Syllabus Configuration</h3>
+          <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'} mb-6 bg-indigo-500/10 p-3 rounded-lg border border-indigo-500/10`}>
+            <strong>Blueprint Details:</strong> {activeExam.paperBlueprint}
+          </p>
           
           <div className="space-y-5">
-            {/* Board & Class */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'} font-medium mb-1.5 block`}>Board</label>
-                <select 
-                  value={formData.board}
-                  onChange={e => setFormData({ ...formData, board: e.target.value })}
-                  className={`w-full px-4 py-3 ${isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'} border rounded-xl text-sm cursor-pointer focus:border-indigo-500`}
-                >
-                  <option value="CBSE" className={isDark ? 'bg-[#12122a]' : ''}>CBSE</option>
-                  <option value="ICSE" className={isDark ? 'bg-[#12122a]' : ''}>ICSE</option>
-                  <option value="State" className={isDark ? 'bg-[#12122a]' : ''}>State Board</option>
-                </select>
-              </div>
-              <div>
-                <label className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'} font-medium mb-1.5 block`}>Class</label>
-                <select 
-                  value={formData.class}
-                  onChange={e => setFormData({ ...formData, class: e.target.value })}
-                  className={`w-full px-4 py-3 ${isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'} border rounded-xl text-sm cursor-pointer focus:border-indigo-500`}
-                >
-                  {[8, 9, 10, 11, 12].map(c => (
-                    <option key={c} value={c} className={isDark ? 'bg-[#12122a]' : ''}>{c}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
             {/* Subject */}
             <div>
               <label className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'} font-medium mb-1.5 block`}>Subject</label>
@@ -243,7 +234,7 @@ export default function QuestionPaperGenerator() {
 
             {/* Chapter */}
             <div>
-              <label className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'} font-medium mb-1.5 block`}>Chapter</label>
+              <label className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'} font-medium mb-1.5 block`}>Chapter / Topic</label>
               <select 
                 value={formData.chapter}
                 onChange={e => setFormData({ ...formData, chapter: e.target.value })}
@@ -280,25 +271,25 @@ export default function QuestionPaperGenerator() {
 
             {/* Total Marks */}
             <div>
-              <label className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'} font-medium mb-1.5 block`}>Total Marks (auto-calculated)</label>
+              <label className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'} font-medium mb-1.5 block`}>Target Marks (will auto-adjust)</label>
               <input 
                 type="number"
                 value={formData.totalMarks}
                 onChange={e => setFormData({ ...formData, totalMarks: Number(e.target.value) })}
-                min={20}
-                max={100}
+                min={10}
+                max={180}
                 className={`w-full px-4 py-3 ${isDark ? 'bg-white/5 border-white/10 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'} border rounded-xl text-sm focus:border-indigo-500`}
               />
             </div>
 
             {/* Question Types */}
             <div>
-              <label className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'} font-medium mb-2 block`}>Question Types (AI will generate)</label>
+              <label className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'} font-medium mb-2 block`}>Include Sections</label>
               <div className="flex flex-wrap gap-2">
                 {[
-                  { key: 'mcq', label: '5 MCQs (1 mark each)' },
-                  { key: 'short', label: '3 Short Answer (2 marks)' },
-                  { key: 'long', label: '2 Long Answer (5 marks)' },
+                  { key: 'mcq', label: examTarget === 'iit_jee' ? 'Single Choice MCQs' : 'Section A (Objective)' },
+                  { key: 'short', label: examTarget === 'iit_jee' ? 'Multi-Choice MCQs' : 'Section B (Short)' },
+                  { key: 'long', label: examTarget === 'iit_jee' ? 'Numerical Integers' : 'Section C (Long)' },
                 ].map(type => (
                   <button
                     key={type.key}
@@ -331,12 +322,12 @@ export default function QuestionPaperGenerator() {
               {isGenerating ? (
                 <>
                   <Loader2 className="h-5 w-5 animate-spin" />
-                  AI is generating...
+                  Syllabus-Bound Generation...
                 </>
               ) : (
                 <>
                   <Sparkles className="h-5 w-5" />
-                  Generate with AI
+                  Generate Exam Paper
                 </>
               )}
             </button>
@@ -353,15 +344,15 @@ export default function QuestionPaperGenerator() {
                 <div className="w-16 h-16 border-4 border-indigo-500/30 rounded-full"></div>
                 <div className="absolute top-0 left-0 w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
               </div>
-              <p className={`mt-6 font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{generationStatus || '🤖 AI is generating your paper...'}</p>
-              <p className={`mt-2 text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>This may take 10-20 seconds</p>
+              <p className={`mt-6 font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{generationStatus || '🤖 AI is compiling your paper...'}</p>
+              <p className={`mt-2 text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Grounding strictly to {activeExam.shortName} guidelines</p>
             </div>
           )}
 
           {!isGenerating && !generatedPaper && (
             <div className={`flex flex-col items-center justify-center py-20 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
               <FileText className="h-16 w-16 mb-4 opacity-30" />
-              <p className="text-center">Configure the options and click<br/>"Generate with AI"</p>
+              <p className="text-center">Select your subject details and click<br/>"Generate Exam Paper"</p>
             </div>
           )}
 
@@ -369,11 +360,11 @@ export default function QuestionPaperGenerator() {
             <div className="space-y-4">
               {/* Paper Header */}
               <div className={`p-4 ${isDark ? 'bg-indigo-500/10 border-indigo-500/20' : 'bg-indigo-50 border-indigo-200'} border rounded-xl text-center`}>
-                <p className="font-bold">{generatedPaper.board} Class {generatedPaper.class} {generatedPaper.subject}</p>
+                <p className="font-bold">{generatedPaper.board} - {generatedPaper.subject}</p>
                 <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                   {generatedPaper.chapter === 'all' ? 'Full Syllabus' : generatedPaper.chapter}
                 </p>
-                <p className="text-xs mt-1">Time: 3 hours | Max Marks: {generatedPaper.totalMarks}</p>
+                <p className="text-xs mt-1">Class level: {generatedPaper.class} | Max Marks: {generatedPaper.totalMarks}</p>
               </div>
 
               {/* Sections Summary */}
@@ -382,10 +373,10 @@ export default function QuestionPaperGenerator() {
                   questions.length > 0 && (
                     <div key={type} className={`p-3 ${isDark ? 'bg-white/[0.02] border-white/[0.04]' : 'bg-gray-50 border-gray-200'} border rounded-lg`}>
                       <div className="flex items-center justify-between">
-                        <span className="font-medium text-sm capitalize">
-                          {type === 'mcq' ? 'Section A: MCQs' : 
-                           type === 'short' ? 'Section B: Short Answer' :
-                           'Section C: Long Answer'}
+                        <span className="font-medium text-sm capitalize text-indigo-400">
+                          {type === 'mcq' ? (examTarget === 'iit_jee' ? 'Section A: Single MCQs' : 'Section A: Objective MCQs') : 
+                           type === 'short' ? (examTarget === 'iit_jee' ? 'Section B: Multiple Choice' : 'Section B: Short Subjective') :
+                           (examTarget === 'iit_jee' ? 'Section C: Integer Types' : 'Section C: Long Subjective')}
                         </span>
                         <span className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{questions.length} Questions</span>
                       </div>
@@ -441,8 +432,8 @@ export default function QuestionPaperGenerator() {
               <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
                 {/* Paper Header */}
                 <div className="text-center mb-8">
-                  <p className="text-sm font-medium">{generatedPaper.board}</p>
-                  <h2 className="text-xl font-bold mt-1">Class {generatedPaper.class} - {generatedPaper.subject}</h2>
+                  <p className="text-sm font-medium">{generatedPaper.board} TEST PAPER</p>
+                  <h2 className="text-xl font-bold mt-1">{generatedPaper.subject}</h2>
                   <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'} mt-1`}>
                     {generatedPaper.chapter === 'all' ? 'Full Syllabus Test' : generatedPaper.chapter}
                   </p>
@@ -451,7 +442,7 @@ export default function QuestionPaperGenerator() {
                     <span>Max Marks: {generatedPaper.totalMarks}</span>
                   </div>
                   <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'} mt-2`}>
-                    General Instructions: All questions are compulsory.
+                    General Instructions: All questions are compulsory. Match mathematical expressions carefully.
                   </p>
                 </div>
 
@@ -459,11 +450,11 @@ export default function QuestionPaperGenerator() {
                 {Object.entries(generatedPaper.sections).map(([type, questions]: any, sectionIndex) => (
                   questions.length > 0 && (
                     <div key={type} className="mb-8">
-                      <h3 className={`font-bold text-lg mb-4 pb-2 border-b ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
+                      <h3 className={`font-bold text-lg mb-4 pb-2 border-b ${isDark ? 'border-white/10' : 'border-gray-200'} text-indigo-400`}>
                         Section {String.fromCharCode(65 + sectionIndex)}: {
-                          type === 'mcq' ? 'Multiple Choice Questions (1 mark each)' :
-                          type === 'short' ? 'Short Answer Questions (2 marks each)' :
-                          'Long Answer Questions (5 marks each)'
+                          type === 'mcq' ? (examTarget === 'iit_jee' ? 'Single Choice MCQs (3 marks, -1 negative)' : 'Section A: Objective MCQs (1 mark)') :
+                          type === 'short' ? (examTarget === 'iit_jee' ? 'Multiple Choice Questions (4 marks, partial markings)' : 'Section B: Short Subjective') :
+                          (examTarget === 'iit_jee' ? 'Numerical / Integer Entry Questions (3 marks, no negative)' : 'Section C: Long Subjective')
                         }
                       </h3>
                       <div className="space-y-4">
@@ -492,14 +483,14 @@ export default function QuestionPaperGenerator() {
                 {/* Answer Key */}
                 <div className={`mt-8 p-6 ${isDark ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-emerald-50 border-emerald-200'} border rounded-xl`}>
                   <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-                    <Check className="h-5 w-5 text-emerald-500" /> Answer Key & Explanations
+                    <Check className="h-5 w-5 text-emerald-500" /> Complete Solutions & Marking Key
                   </h3>
                   <div className="space-y-3">
                     {Object.values(generatedPaper.sections).flat().map((q: any, index: number) => (
                       <div key={q.id} className={`p-3 ${isDark ? 'bg-white/5' : 'bg-white'} rounded-lg text-sm`}>
                         <p><span className="font-bold">Q{index + 1}:</span> {q.answer}</p>
                         {q.explanation && (
-                          <p className={`mt-1 text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                          <p className={`mt-1 text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'} whitespace-pre-wrap`}>
                             💡 {q.explanation}
                           </p>
                         )}

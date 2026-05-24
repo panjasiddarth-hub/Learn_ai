@@ -1,3 +1,4 @@
+import { ExamTarget } from '../data/syllabi';
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import {
@@ -147,6 +148,8 @@ function mapProfileToUser(profile: any): User {
 }
 
 interface AppState {
+  examTarget: ExamTarget;
+  setExamTarget: (target: ExamTarget) => void;
   theme: Theme;
   toggleTheme: () => void;
   user: User | null;
@@ -187,6 +190,11 @@ interface AppState {
 const AppContext = createContext<AppState | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  const [examTarget, setExamTargetState] = useState<ExamTarget>(loadState('examTarget', 'cbse_10'));
+  const setExamTarget = useCallback((target: ExamTarget) => {
+    setExamTargetState(target);
+    saveState('examTarget', target);
+  }, []);
   const [theme, setTheme] = useState<Theme>(loadState('theme', 'dark'));
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -614,7 +622,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   return (
     <AppContext.Provider value={{
-      theme, toggleTheme, user, allStudents, allTeachers, loading,
+      theme, toggleTheme, user, examTarget, setExamTarget, allStudents, allTeachers, loading,
       login, loginWithGoogle, signup, logout, refreshUsers,
       quizResults, addQuizResult, classrooms, joinClassroom, createClassroom, toggleClassLive,
       doubtHistory, addDoubtMessage, clearDoubtHistory,
