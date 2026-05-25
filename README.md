@@ -1,32 +1,32 @@
-# 🎓 Student Performance & Material Portal
+# 🚀 Learn_AI
 
-A modern and responsive academic management platform designed to help students and teachers manage study materials, monitor performance, and streamline educational activities efficiently.
+An AI-powered educational platform designed to help students learn smarter, track academic performance, access study materials, and improve productivity through modern technology.
 
 ---
 
-## 🚀 Features
+## ✨ Features
 
-### 👨‍🎓 Student Module
-- View study materials
+### 👨‍🎓 Student Features
+- Access study materials
 - Track academic performance
-- Access attendance details
-- User-friendly dashboard
+- Attendance monitoring
+- Smart learning dashboard
 
-### 👨‍🏫 Teacher Module
-- Upload study materials
-- Manage student records
-- Monitor performance analytics
-- Attendance management
+### 👨‍🏫 Teacher Features
+- Upload and manage materials
+- Track student progress
+- Manage attendance
+- Performance analytics
+
+### 🤖 AI Features
+- AI-powered learning assistance
+- Smart recommendations
+- Productivity-focused platform
 
 ### 🔐 Authentication
 - Secure Login & Signup
-- Role-based access system
+- Role-based access
 - Protected routes
-
-### 📱 Responsive Design
-- Mobile-friendly UI
-- Modern dashboard interface
-- Clean and intuitive user experience
 
 ---
 
@@ -34,16 +34,42 @@ A modern and responsive academic management platform designed to help students a
 
 | Technology | Usage |
 |------------|-------|
-| React | Frontend Framework |
+| React | Frontend |
 | TypeScript | Type Safety |
-| Vite | Fast Development Build Tool |
+| Vite | Build Tool |
 | Tailwind CSS | Styling |
-| Supabase | Backend & Authentication |
+| Supabase | Backend & Database |
 | Context API | State Management |
 
 ---
 
-## 📂 Project Structure
+## ⚡ Installation
+
+```bash
+git clone https://github.com/YOUR_USERNAME/learn_ai.git
+
+cd learn_ai
+
+npm install
+
+npm run dev
+```
+
+---
+
+## 🌐 Live Demo
+
+Add your Vercel deployment link here.
+
+Example:
+
+```bash
+https://learn-ai.vercel.app
+```
+
+---
+
+## 📂 Folder Structure
 
 ```bash
 src/
@@ -59,76 +85,14 @@ src/
 
 ---
 
-## ⚡ Installation & Setup
-
-### 1️⃣ Clone Repository
-
-```bash
-git clone https://github.com/YOUR_USERNAME/student-performance-and-material-portal.git
-```
-
-### 2️⃣ Navigate to Project Folder
-
-```bash
-cd student-performance-and-material-portal
-```
-
-### 3️⃣ Install Dependencies
-
-```bash
-npm install
-```
-
-### 4️⃣ Start Development Server
-
-```bash
-npm run dev
-```
-
----
-
-## 🌐 Live Demo
-
-🔗 Add your Vercel deployment link here
-
-Example:
-
-```bash
-https://your-project-name.vercel.app
-```
-
----
-
-## 📸 Screenshots
-
-Add screenshots of:
-- Login Page
-- Student Dashboard
-- Teacher Dashboard
-- Materials Section
-
----
-
 ## 📌 Future Enhancements
 
-- AI-based performance analysis
-- Real-time notifications
+- AI chatbot integration
+- Personalized learning paths
 - Parent dashboard
-- Chat system
-- Mobile application
-- Dark mode support
-
----
-
-## 🤝 Contribution
-
-Contributions are welcome!
-
-1. Fork the repository
-2. Create a new branch
-3. Commit changes
-4. Push to your branch
-5. Open a Pull Request
+- Mobile app support
+- Real-time notifications
+- AI-based performance prediction
 
 ---
 
@@ -137,15 +101,16 @@ Contributions are welcome!
 ### Siddarth
 
 Passionate about:
+- AI
+- Startups
 - Web Development
-- AI & Startups
-- Building impactful tech solutions
+- Building impactful tech products
 
 ---
 
 ## ⭐ Support
 
-If you like this project, consider giving it a ⭐ on GitHub!
+If you like this project, give it a ⭐ on GitHub!
 
 ---
 
