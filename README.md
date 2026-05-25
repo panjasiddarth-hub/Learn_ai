@@ -64,7 +64,7 @@ Add your Vercel deployment link here.
 Example:
 
 ```bash
-https://learn-ai.vercel.app
+https://learn-ai-kappa.vercel.app/
 ```
 
 ---
